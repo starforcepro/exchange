@@ -1,0 +1,13 @@
+CREATE TABLE IF NOT EXISTS orders (
+    id VARCHAR(36) PRIMARY KEY,
+    operation_number INTEGER NOT NULL UNIQUE AUTO_INCREMENT,
+    side VARCHAR(4) NOT NULL,
+    ticker VARCHAR(10) NOT NULL,
+    qty INTEGER NOT NULL,
+    price DECIMAL(19, 4) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_orders_ticker ON orders(ticker);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
