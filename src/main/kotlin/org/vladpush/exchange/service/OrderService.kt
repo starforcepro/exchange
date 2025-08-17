@@ -1,6 +1,8 @@
 package org.vladpush.exchange.service
 
+import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Service
+import org.vladpush.exchange.config.KafkaConfig
 import org.vladpush.exchange.model.Order
 import org.vladpush.exchange.model.OrderSide
 import org.vladpush.exchange.repository.OrderRepository
@@ -9,7 +11,14 @@ import java.time.LocalDateTime
 import java.util.UUID
 
 @Service
-class OrderService(private val orderRepository: OrderRepository) {
+class OrderService(
+    private val orderRepository: OrderRepository,
+    private val kafkaTemplate: KafkaTemplate<String, Order>,
+    private val kafkaConfig: KafkaConfig,
+) {
+    
+//    @Value("\${exchange.kafka.topic.orders}")
+//    private lateinit var ordersTopic: String
 
     fun getAllOrders(): List<Order> {
         return orderRepository.findAll()
@@ -32,8 +41,10 @@ class OrderService(private val orderRepository: OrderRepository) {
             createdAt = now,
             updatedAt = now
         )
+
+        kafkaTemplate.send(kafkaConfig.ordersTopicName, order.id.toString(), order)
         
-        return orderRepository.save(order)
+        return order
     }
 
     fun deleteOrder(id: UUID) {

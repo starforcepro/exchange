@@ -7,6 +7,7 @@ import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.springframework.kafka.core.KafkaTemplate
 import org.vladpush.exchange.model.Order
 import org.vladpush.exchange.model.OrderSide
 import org.vladpush.exchange.repository.OrderRepository
@@ -17,7 +18,8 @@ import java.util.UUID
 class OrderServiceTest {
 
     private val orderRepository: OrderRepository = mockk()
-    private val orderService = OrderService(orderRepository)
+    private val kafkaTemplate: KafkaTemplate<String, Order> = mockk(relaxed = true)
+    private val orderService = OrderService(orderRepository, kafkaTemplate, mockk(relaxed = true))
 
     @Test
     fun `getAllOrders should return all orders from repository`() {
@@ -38,11 +40,7 @@ class OrderServiceTest {
     }
 
     @Test
-    fun `createOrder should save order with generated UUID and timestamps`() {
-        // Given
-        val orderSlot = slot<Order>()
-        every { orderRepository.save(capture(orderSlot)) } answers { orderSlot.captured }
-
+    fun `createOrder should publish order to Kafka with generated UUID and timestamps`() {
         // When
         val result = orderService.createOrder(
             side = OrderSide.BUY,
@@ -60,7 +58,7 @@ class OrderServiceTest {
         assertThat(result.createdAt).isNotNull()
         assertThat(result.updatedAt).isNotNull()
         assertThat(result.createdAt).isEqualTo(result.updatedAt)
-        verify { orderRepository.save(any()) }
+        verify { kafkaTemplate.send(any<String>(), any<String>(), any<Order>()) }
     }
 
     @Test
