@@ -54,6 +54,16 @@ class OrderController(private val orderService: OrderService) {
             ResponseEntity.badRequest().build()
         }
     }
+
+    @PostMapping("/delete/")
+    fun deleteOrder(): ResponseEntity<Void> {
+        return try {
+            orderService.deleteAllOrders()
+            ResponseEntity.ok().build()
+        } catch (e: IllegalArgumentException) {
+            ResponseEntity.badRequest().build()
+        }
+    }
 }
 
 data class CreateOrderRequest(

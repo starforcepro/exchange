@@ -2,7 +2,7 @@ spring:
   application:
     name: exchange
   datasource:
-    url: jdbc:h2:mem:exchange;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:mem:exchange;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;mode=MySQL
     driver-class-name: org.h2.Driver
     username: sa
     password: 
@@ -36,6 +36,7 @@ spring:
         auto.offset.reset: latest
         enable.auto.commit: true
         auto.commit.interval.ms: 1000
+        max.poll.interval.ms: 1000
 
 server:
   port: 8080

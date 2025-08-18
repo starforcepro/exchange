@@ -8,7 +8,7 @@ import org.vladpush.exchange.model.OrderSide
 import org.vladpush.exchange.repository.OrderRepository
 import java.math.BigDecimal
 import java.time.LocalDateTime
-import java.util.UUID
+import java.util.*
 
 @Service
 class OrderService(
@@ -16,9 +16,6 @@ class OrderService(
     private val kafkaTemplate: KafkaTemplate<String, Order>,
     private val kafkaConfig: KafkaConfig,
 ) {
-    
-//    @Value("\${exchange.kafka.topic.orders}")
-//    private lateinit var ordersTopic: String
 
     fun getAllOrders(): List<Order> {
         return orderRepository.findAll()
@@ -30,7 +27,7 @@ class OrderService(
 
     fun createOrder(side: OrderSide, ticker: String, qty: Int, price: BigDecimal): Order {
         validateOrderData(ticker, qty, price)
-        
+
         val now = LocalDateTime.now()
         val order = Order(
             id = UUID.randomUUID(),
@@ -43,12 +40,16 @@ class OrderService(
         )
 
         kafkaTemplate.send(kafkaConfig.ordersTopicName, order.id.toString(), order)
-        
+
         return order
     }
 
     fun deleteOrder(id: UUID) {
         orderRepository.deleteById(id)
+    }
+
+    fun deleteAllOrders() {
+        orderRepository.deleteAll()
     }
 
     private fun validateOrderData(ticker: String, qty: Int, price: BigDecimal) {
