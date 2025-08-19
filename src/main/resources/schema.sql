@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS orders (
     id VARCHAR(36) PRIMARY KEY,
-    operation_number INTEGER NOT NULL UNIQUE AUTO_INCREMENT,
+    operation_number SERIAL NOT NULL UNIQUE,
     side VARCHAR(4) NOT NULL,
     ticker VARCHAR(10) NOT NULL,
     qty INTEGER NOT NULL,
