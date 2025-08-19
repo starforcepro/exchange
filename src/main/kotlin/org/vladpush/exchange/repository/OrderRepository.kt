@@ -87,8 +87,6 @@ class OrderRepository(
         val sql = """
             INSERT INTO orders (id, side, ticker, qty, price, created_at, updated_at) 
             VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-            updated_at = VALUES(updated_at);
         """.trimIndent()
 
         jdbcTemplate.update(
