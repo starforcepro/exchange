@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: exchange
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+  kafka:
+    # bootstrap-servers will be provided by Testcontainers via DynamicPropertySource in tests
+    consumer:
+      group-id: exchange-order-group-test
+      properties:
+        spring.json.trusted.packages: "*"
+
+exchange:
+  kafka:
+    topic:
+      orders: order-events
+
+logging:
+  level:
+    org.springframework.jdbc: INFO
+    org.vladpush.exchange: INFO
+    org.springframework.kafka: INFO

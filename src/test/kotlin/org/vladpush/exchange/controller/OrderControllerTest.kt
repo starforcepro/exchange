@@ -1,182 +1,72 @@
 package org.vladpush.exchange.controller
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.ninjasquad.springmockk.MockkBean
-import io.mockk.every
-import io.mockk.verify
+import org.assertj.core.api.Assertions
+import org.awaitility.kotlin.await
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
-import org.springframework.http.MediaType
-import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpStatus
 import org.vladpush.exchange.model.Order
 import org.vladpush.exchange.model.OrderSide
-import org.vladpush.exchange.service.OrderService
+import org.vladpush.exchange.repository.OrderRepository
+import org.vladpush.exchange.testutil.TestBase
 import java.math.BigDecimal
+import java.time.Duration
 import java.time.LocalDateTime
 import java.util.UUID
 
-@WebMvcTest(OrderController::class)
-class OrderControllerTest {
+
+class OrderControllerTest : TestBase() {
 
     @Autowired
-    private lateinit var mockMvc: MockMvc
+    private lateinit var orderRepository: OrderRepository
 
-    @Autowired
-    private lateinit var objectMapper: ObjectMapper
-
-    @MockkBean
-    private lateinit var orderService: OrderService
-
-    @Test
-    fun `GET orders should return all orders`() {
-        // Given
-        val orders = listOf(
-            createTestOrder(OrderSide.BUY, "AAPL", 100, BigDecimal("150.00")),
-            createTestOrder(OrderSide.SELL, "GOOGL", 50, BigDecimal("2500.00"))
-        )
-        every { orderService.getAllOrders() } returns orders
-
-        // When & Then
-        mockMvc.perform(get("/orders"))
-            .andExpect(status().isOk)
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-            .andExpect(jsonPath("$.length()").value(2))
-            .andExpect(jsonPath("$[0].side").value("BUY"))
-            .andExpect(jsonPath("$[0].ticker").value("AAPL"))
-            .andExpect(jsonPath("$[0].qty").value(100))
-            .andExpect(jsonPath("$[0].price").value(150.00))
-            .andExpect(jsonPath("$[1].side").value("SELL"))
-            .andExpect(jsonPath("$[1].ticker").value("GOOGL"))
-
-        verify { orderService.getAllOrders() }
-    }
-
-    @Test
-    fun `GET orders by id should return order when exists`() {
-        // Given
-        val orderId = UUID.randomUUID()
-        val order = createTestOrder(OrderSide.BUY, "AAPL", 100, BigDecimal("150.00"))
-        every { orderService.getOrderById(orderId) } returns order
-
-        // When & Then
-        mockMvc.perform(get("/orders/{id}", orderId))
-            .andExpect(status().isOk)
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-            .andExpect(jsonPath("$.side").value("BUY"))
-            .andExpect(jsonPath("$.ticker").value("AAPL"))
-            .andExpect(jsonPath("$.qty").value(100))
-            .andExpect(jsonPath("$.price").value(150.00))
-
-        verify { orderService.getOrderById(orderId) }
-    }
-
-    @Test
-    fun `GET orders by id should return 404 when not exists`() {
-        // Given
-        val orderId = UUID.randomUUID()
-        every { orderService.getOrderById(orderId) } returns null
-
-        // When & Then
-        mockMvc.perform(get("/orders/{id}", orderId))
-            .andExpect(status().isNotFound)
-
-        verify { orderService.getOrderById(orderId) }
-    }
-
-    @Test
-    fun `POST orders should create new order`() {
-        // Given
-        val request = CreateOrderRequest(
+    private fun createOrder(): Order {
+        val order = Order(
+            id = UUID.randomUUID(),
             side = OrderSide.BUY,
             ticker = "AAPL",
-            qty = 100,
-            price = BigDecimal("150.00")
+            qty = 1,
+            price = BigDecimal("1.00"),
+            createdAt = LocalDateTime.now(),
+            updatedAt = LocalDateTime.now()
         )
-        val createdOrder = createTestOrder(OrderSide.BUY, "AAPL", 100, BigDecimal("150.00"))
-        every { 
-            orderService.createOrder(OrderSide.BUY, "AAPL", 100, BigDecimal("150.00")) 
-        } returns createdOrder
-
-        // When & Then
-        mockMvc.perform(post("/orders")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(request)))
-            .andExpect(status().isCreated)
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-            .andExpect(jsonPath("$.side").value("BUY"))
-            .andExpect(jsonPath("$.ticker").value("AAPL"))
-            .andExpect(jsonPath("$.qty").value(100))
-            .andExpect(jsonPath("$.price").value(150.00))
-
-        verify { orderService.createOrder(OrderSide.BUY, "AAPL", 100, BigDecimal("150.00")) }
+        orderRepository.save(order)
+        return order
     }
 
     @Test
-    fun `POST orders should return 400 when validation fails`() {
-        // Given
-        val request = CreateOrderRequest(
-            side = OrderSide.BUY,
-            ticker = "",
-            qty = 100,
-            price = BigDecimal("150.00")
-        )
-        every { 
-            orderService.createOrder(OrderSide.BUY, "", 100, BigDecimal("150.00")) 
-        } throws IllegalArgumentException("Ticker cannot be blank")
+    fun savesOrder() {
+        val create = CreateOrderRequest(OrderSide.BUY, "AAPL", 10, BigDecimal("1"))
 
-        // When & Then
-        mockMvc.perform(post("/orders")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(request)))
-            .andExpect(status().isBadRequest)
+        val createResponse = restTemplate.postForEntity(baseUrl() + "/orders/create", create, Order::class.java)
 
-        verify { orderService.createOrder(OrderSide.BUY, "", 100, BigDecimal("150.00")) }
+        val created = createResponse.body!!
+        await.atMost(Duration.ofSeconds(10))
+            .pollInterval(Duration.ofMillis(100))
+            .until { orderRepository.findById(created.id) != null }
+        Assertions.assertThat(createResponse.statusCode).isEqualTo(HttpStatus.CREATED)
     }
 
     @Test
-    fun `DELETE orders should return 204 when order deleted`() {
-        // Given
-        val orderId = UUID.randomUUID()
-        every { orderService.deleteOrder(orderId) }
+    fun deletesOrderById() {
+        val storedOrder = createOrder()
 
-        // When & Then
-        mockMvc.perform(delete("/orders/{id}", orderId))
-            .andExpect(status().isNoContent)
+        val deleteResponse = restTemplate.postForEntity(baseUrl() + "/orders/delete/${storedOrder.id}", HttpEntity.EMPTY, Void::class.java)
 
-        verify { orderService.deleteOrder(orderId) }
+        val storedOrderAfterDeletion = orderRepository.findById(storedOrder.id)
+        Assertions.assertThat(deleteResponse.statusCode).isEqualTo(HttpStatus.OK)
+        Assertions.assertThat(storedOrderAfterDeletion).isNull()
     }
 
     @Test
-    fun `DELETE orders should return 404 when order not found`() {
-        // Given
-        val orderId = UUID.randomUUID()
-        every { orderService.deleteOrder(orderId) }
+    fun getsOrderById() {
+        val storedOrder = createOrder()
 
-        // When & Then
-        mockMvc.perform(delete("/orders/{id}", orderId))
-            .andExpect(status().isNotFound)
+        val getResponse = restTemplate.getForEntity(baseUrl() + "/orders/${storedOrder.id}", Order::class.java)
+        val order = getResponse.body!!
 
-        verify { orderService.deleteOrder(orderId) }
-    }
-
-    private fun createTestOrder(
-        side: OrderSide,
-        ticker: String,
-        qty: Int,
-        price: BigDecimal
-    ): Order {
-        val now = LocalDateTime.now()
-        return Order(
-            id = UUID.randomUUID(),
-            side = side,
-            ticker = ticker,
-            qty = qty,
-            price = price,
-            createdAt = now,
-            updatedAt = now
-        )
+        Assertions.assertThat(getResponse.statusCode).isEqualTo(HttpStatus.OK)
+        Assertions.assertThat(storedOrder.id).isEqualTo(order.id)
     }
 }
