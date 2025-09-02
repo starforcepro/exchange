@@ -12,8 +12,7 @@ import org.vladpush.exchange.repository.OrderRepository
 import org.vladpush.exchange.testutil.TestBase
 import java.math.BigDecimal
 import java.time.Duration
-import java.time.LocalDateTime
-import java.util.UUID
+import java.util.*
 
 
 class OrderControllerTest : TestBase() {
@@ -28,8 +27,6 @@ class OrderControllerTest : TestBase() {
             ticker = "AAPL",
             qty = 1,
             price = BigDecimal("1.00"),
-            createdAt = LocalDateTime.now(),
-            updatedAt = LocalDateTime.now()
         )
         orderRepository.save(order)
         return order
@@ -52,7 +49,11 @@ class OrderControllerTest : TestBase() {
     fun deletesOrderById() {
         val storedOrder = createOrder()
 
-        val deleteResponse = restTemplate.postForEntity(baseUrl() + "/orders/delete/${storedOrder.id}", HttpEntity.EMPTY, Void::class.java)
+        val deleteResponse = restTemplate.postForEntity(
+            baseUrl() + "/orders/delete/${storedOrder.id}",
+            HttpEntity.EMPTY,
+            Void::class.java
+        )
 
         val storedOrderAfterDeletion = orderRepository.findById(storedOrder.id)
         Assertions.assertThat(deleteResponse.statusCode).isEqualTo(HttpStatus.OK)

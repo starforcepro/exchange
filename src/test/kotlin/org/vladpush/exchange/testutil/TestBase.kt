@@ -8,7 +8,6 @@ import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
-import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
@@ -35,21 +34,15 @@ abstract class TestBase {
             .withUsername("test")
             .withPassword("test")
 
-        @Container
-        @JvmStatic
-        val kafka: KafkaContainer = KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.5.1"))
-
         @JvmStatic
         @BeforeAll
         fun startContainers() {
             postgres.start()
-            kafka.start()
         }
 
 //        @JvmStatic
 //        @AfterAll
 //        fun stopContainers() {
-//            kafka.stop()
 //            postgres.stop()
 //        }
 
@@ -65,11 +58,6 @@ abstract class TestBase {
             // Ensure schema.sql is applied in tests
             registry.add("spring.sql.init.mode") { "always" }
             registry.add("spring.sql.init.schema-locations") { "classpath:schema.sql" }
-
-            // Kafka
-            registry.add("spring.kafka.bootstrap-servers") { kafka.bootstrapServers }
-            // Keep default group-id from application.yaml or override if needed
-            registry.add("spring.kafka.consumer.properties.spring.json.trusted.packages") { "*" }
         }
     }
 }

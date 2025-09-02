@@ -1,19 +1,16 @@
 package org.vladpush.exchange.model
 
-import java.math.BigDecimal
 import java.time.LocalDateTime
 import java.util.UUID
 
-enum class OrderSide {
-    BUY, SELL
-}
-
-data class Order(
+data class OrdersQueueEntry(
     val id: UUID = UUID.randomUUID(),
-    val side: OrderSide,
-    val ticker: String,
-    val qty: Int,
-    val price: BigDecimal,
+    val orderId: UUID,
+    val status: OrderQueueEntryStatus = OrderQueueEntryStatus.NEW,
     val createdAt: LocalDateTime = LocalDateTime.now(),
     val updatedAt: LocalDateTime = LocalDateTime.now()
 )
+
+enum class OrderQueueEntryStatus {
+    NEW, CHECKED
+}

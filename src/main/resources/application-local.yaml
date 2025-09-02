@@ -10,41 +10,11 @@ spring:
     init:
       mode: always
       schema-locations: classpath:schema.sql
-  kafka:
-    bootstrap-servers: localhost:9092
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      properties:
-        spring.json.add.type.headers: false
-        # Local development settings
-        retries: 0
-        batch.size: 16384
-        linger.ms: 1
-        buffer.memory: 33554432
-    consumer:
-      group-id: exchange-order-group
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: "*"
-        # Local development settings
-        auto.offset.reset: latest
-        enable.auto.commit: true
-        auto.commit.interval.ms: 1000
-#        max.poll.interval.ms: 1000
 
 server:
   port: 8080
-
-exchange:
-  kafka:
-    topic:
-      orders: order-events
 
 logging:
   level:
     org.springframework.jdbc: DEBUG
     org.vladpush.exchange: DEBUG
-    org.apache.kafka: INFO
-    org.springframework.kafka: DEBUG

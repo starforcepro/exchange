@@ -1,21 +1,36 @@
 package org.vladpush.exchange.service
 
-import org.springframework.kafka.core.KafkaTemplate
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
-import org.vladpush.exchange.config.KafkaConfig
+import org.springframework.transaction.annotation.Transactional
 import org.vladpush.exchange.model.Order
 import org.vladpush.exchange.model.OrderSide
+import org.vladpush.exchange.model.OrderQueueEntryStatus
+import org.vladpush.exchange.model.OrdersQueueEntry
 import org.vladpush.exchange.repository.OrderRepository
+import org.vladpush.exchange.repository.OrdersQueueRepository
 import java.math.BigDecimal
-import java.time.LocalDateTime
 import java.util.*
 
 @Service
 class OrderService(
     private val orderRepository: OrderRepository,
-    private val kafkaTemplate: KafkaTemplate<String, Order>,
-    private val kafkaConfig: KafkaConfig,
+    private val ordersQueueRepository: OrdersQueueRepository,
 ) {
+
+    @Scheduled(fixedRate = 10000L)
+    fun handleOrders() {
+        val leftOrder = orderRepository.findNextTradeCandidate() ?: return
+        var rightOrder = orderRepository.findNextTradeCandidateFor(leftOrder)
+        var leftOrderQty = leftOrder.qty
+        while (rightOrder != null && leftOrderQty > 0) {
+            val tradeQuantity = minOf(leftOrderQty, rightOrder.qty)
+            val successfullyTraded = orderRepository.saveTrade(leftOrder, rightOrder, tradeQuantity)
+            if (successfullyTraded) leftOrderQty -= tradeQuantity
+            rightOrder = orderRepository.findNextTradeCandidateFor(leftOrder)
+        }
+        ordersQueueRepository.updateStatus(leftOrder.id, OrderQueueEntryStatus.CHECKED)
+    }
 
     fun getAllOrders(): List<Order> {
         return orderRepository.findAll()
@@ -25,21 +40,19 @@ class OrderService(
         return orderRepository.findById(id)
     }
 
+    @Transactional
     fun createOrder(side: OrderSide, ticker: String, qty: Int, price: BigDecimal): Order {
         validateOrderData(ticker, qty, price)
 
-        val now = LocalDateTime.now()
         val order = Order(
             id = UUID.randomUUID(),
             side = side,
             ticker = ticker.uppercase(),
             qty = qty,
             price = price,
-            createdAt = now,
-            updatedAt = now
         )
-
-        kafkaTemplate.send(kafkaConfig.ordersTopicName, order.id.toString(), order)
+        orderRepository.save(order)
+        ordersQueueRepository.save(OrdersQueueEntry(orderId = order.id))
 
         return order
     }

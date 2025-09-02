@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.interceptor.TransactionAspectSupport
 import org.vladpush.exchange.model.Order
 import org.vladpush.exchange.model.OrderSide
+import org.vladpush.exchange.model.OrderQueueEntryStatus
 import java.sql.ResultSet
 import java.time.LocalDateTime
 import java.util.*
@@ -47,21 +48,26 @@ class OrderRepository(
 
     fun findById(id: UUID): Order? {
         val sql = "SELECT * FROM orders WHERE id = ?"
-        return jdbcTemplate.query(sql, fetchSingle { it.toOrder() }, id.toString())
+        return jdbcTemplate.query(sql, fetchSingle { it.toOrder() }, id)
     }
 
-    fun findByTicker(ticker: String): List<Order> {
-        val sql = "SELECT * FROM orders WHERE ticker = ? ORDER BY operation_number ASC"
-        return jdbcTemplate.query(sql, fetchList { it.toOrder() }, ticker)
+    fun findNextTradeCandidate(): Order? {
+        val sqlSelectOrderId = "SELECT order_id FROM orders_queue where status = ? ORDER BY position ASC LIMIT 1"
+        val sql = "SELECT * FROM orders WHERE id = ($sqlSelectOrderId)"
+        return jdbcTemplate.query(sql, fetchSingle { it.toOrder() }, OrderQueueEntryStatus.NEW.name)
     }
 
-    fun findTradeCandidateBy(order: Order): Order? {
+    fun findNextTradeCandidateFor(order: Order): Order? {
         val tradeCandidateSide = when (order.side) {
             OrderSide.BUY -> OrderSide.SELL.name
             OrderSide.SELL -> OrderSide.BUY.name
         }
+        val priceCondition = when (order.side) {
+            OrderSide.BUY -> "<="
+            OrderSide.SELL -> ">="
+        }
         val sql =
-            "SELECT * FROM orders WHERE ticker = ? and price <= ? and side = ? and qty > 0 ORDER BY operation_number ASC LIMIT 1"
+            "SELECT * FROM orders WHERE ticker = ? and price $priceCondition ? and side = ? and qty > 0 ORDER BY operation_number ASC LIMIT 1"
         return jdbcTemplate.query(sql, fetchSingle { it.toOrder() }, order.ticker, order.price, tradeCandidateSide)
     }
 
@@ -91,7 +97,7 @@ class OrderRepository(
 
         jdbcTemplate.update(
             sql,
-            order.id.toString(),
+            order.id,
             order.side.name,
             order.ticker,
             order.qty,
@@ -108,12 +114,12 @@ class OrderRepository(
             WHERE id = ? and qty >= ?
         """.trimIndent()
 
-        return jdbcTemplate.update(sql, qty, LocalDateTime.now(), orderId.toString(), qty) > 0
+        return jdbcTemplate.update(sql, qty, LocalDateTime.now(), orderId, qty) > 0
     }
 
     fun deleteById(id: UUID) {
         val sql = "DELETE FROM orders WHERE id = ?"
-        jdbcTemplate.update(sql, id.toString())
+        jdbcTemplate.update(sql, id)
     }
 
     fun deleteAll() {
