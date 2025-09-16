@@ -20,20 +20,20 @@ class OrderControllerTest : TestBase() {
     @Autowired
     private lateinit var orderRepository: OrderRepository
 
-    private fun createOrder(): Order {
+    private fun insertOrder(ticker: String = "AAPL", side: OrderSide = OrderSide.BUY, qty: Int = 10, price: Int = 10): Order {
         val order = Order(
             id = UUID.randomUUID(),
-            side = OrderSide.BUY,
-            ticker = "AAPL",
-            qty = 1,
-            price = BigDecimal("1.00"),
+            side = side,
+            ticker = ticker,
+            qty = qty,
+            price = BigDecimal.valueOf(price.toLong()),
         )
         orderRepository.save(order)
         return order
     }
 
     @Test
-    fun savesOrder() {
+    fun createsOrder() {
         val create = CreateOrderRequest(OrderSide.BUY, "AAPL", 10, BigDecimal("1"))
 
         val createResponse = restTemplate.postForEntity(baseUrl() + "/orders/create", create, Order::class.java)
@@ -47,7 +47,7 @@ class OrderControllerTest : TestBase() {
 
     @Test
     fun deletesOrderById() {
-        val storedOrder = createOrder()
+        val storedOrder = insertOrder()
 
         val deleteResponse = restTemplate.postForEntity(
             baseUrl() + "/orders/delete/${storedOrder.id}",
@@ -62,12 +62,26 @@ class OrderControllerTest : TestBase() {
 
     @Test
     fun getsOrderById() {
-        val storedOrder = createOrder()
+        val storedOrder = insertOrder()
 
         val getResponse = restTemplate.getForEntity(baseUrl() + "/orders/${storedOrder.id}", Order::class.java)
         val order = getResponse.body!!
 
         Assertions.assertThat(getResponse.statusCode).isEqualTo(HttpStatus.OK)
         Assertions.assertThat(storedOrder.id).isEqualTo(order.id)
+    }
+
+    @Test
+    fun getsAllOrders() {
+        insertOrder(side = OrderSide.BUY)
+        insertOrder(side = OrderSide.SELL)
+
+        val getResponse = restTemplate.getForEntity(baseUrl() + "/orders", Array<Order>::class.java)
+        val orders = getResponse.body!!.toList()
+
+        Assertions.assertThat(getResponse.statusCode).isEqualTo(HttpStatus.OK)
+        Assertions.assertThat(orders).hasSize(2)
+        Assertions.assertThat(orders.filter { it.side == OrderSide.BUY }).hasSize(1)
+        Assertions.assertThat(orders.filter { it.side == OrderSide.SELL }).hasSize(1)
     }
 }

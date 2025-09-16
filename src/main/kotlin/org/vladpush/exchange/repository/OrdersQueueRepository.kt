@@ -42,6 +42,17 @@ class OrdersQueueRepository(
         return jdbcTemplate.query(sql, fetchSingle { it.toOrdersQueue() }, id)
     }
 
+    fun findByOrderId(id: UUID): OrdersQueueEntry? {
+        val sql = "SELECT * FROM orders_queue WHERE order_id = ?"
+        return jdbcTemplate.query(sql, fetchSingle { it.toOrdersQueue() }, id)
+    }
+
+    fun getByOrderId(id: UUID): OrdersQueueEntry? {
+        val sql = "SELECT * FROM orders_queue WHERE order_id = ?"
+        return jdbcTemplate.query(sql, fetchSingle { it.toOrdersQueue() }, id)
+    }
+
+
     fun save(entry: OrdersQueueEntry): OrdersQueueEntry {
         val sql = """
             INSERT INTO orders_queue (id, order_id, status, created_at, updated_at)

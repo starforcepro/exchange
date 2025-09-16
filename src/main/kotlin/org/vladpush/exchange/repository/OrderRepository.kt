@@ -51,13 +51,18 @@ class OrderRepository(
         return jdbcTemplate.query(sql, fetchSingle { it.toOrder() }, id)
     }
 
-    fun findNextTradeCandidate(): Order? {
+    fun getById(id: UUID): Order {
+        val sql = "SELECT * FROM orders WHERE id = ?"
+        return jdbcTemplate.query(sql, fetchSingle { it.toOrder() }, id)!!
+    }
+
+    fun findAggressiveOrder(): Order? {
         val sqlSelectOrderId = "SELECT order_id FROM orders_queue where status = ? ORDER BY position ASC LIMIT 1"
         val sql = "SELECT * FROM orders WHERE id = ($sqlSelectOrderId)"
         return jdbcTemplate.query(sql, fetchSingle { it.toOrder() }, OrderQueueEntryStatus.NEW.name)
     }
 
-    fun findNextTradeCandidateFor(order: Order): Order? {
+    fun findPassiveOrderFor(order: Order): Order? {
         val tradeCandidateSide = when (order.side) {
             OrderSide.BUY -> OrderSide.SELL.name
             OrderSide.SELL -> OrderSide.BUY.name

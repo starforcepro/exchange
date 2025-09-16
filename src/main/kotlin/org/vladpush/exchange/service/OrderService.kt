@@ -20,16 +20,17 @@ class OrderService(
 
     @Scheduled(fixedRate = 10000L)
     fun handleOrders() {
-        val leftOrder = orderRepository.findNextTradeCandidate() ?: return
-        var rightOrder = orderRepository.findNextTradeCandidateFor(leftOrder)
-        var leftOrderQty = leftOrder.qty
-        while (rightOrder != null && leftOrderQty > 0) {
-            val tradeQuantity = minOf(leftOrderQty, rightOrder.qty)
-            val successfullyTraded = orderRepository.saveTrade(leftOrder, rightOrder, tradeQuantity)
-            if (successfullyTraded) leftOrderQty -= tradeQuantity
-            rightOrder = orderRepository.findNextTradeCandidateFor(leftOrder)
+        val aggressiveOrder = orderRepository.findAggressiveOrder() ?: return
+        var passiveOrder = orderRepository.findPassiveOrderFor(aggressiveOrder)
+        var aggressiveOrderQty = aggressiveOrder.qty
+        while (passiveOrder != null && aggressiveOrderQty > 0) {
+            val tradeQuantity = minOf(aggressiveOrderQty, passiveOrder.qty)
+            val successfullyTraded = orderRepository.saveTrade(aggressiveOrder, passiveOrder, tradeQuantity)
+            if (successfullyTraded) aggressiveOrderQty -= tradeQuantity
+            ordersQueueRepository.updateStatus(passiveOrder.id, OrderQueueEntryStatus.CHECKED)
+            passiveOrder = orderRepository.findPassiveOrderFor(aggressiveOrder)
         }
-        ordersQueueRepository.updateStatus(leftOrder.id, OrderQueueEntryStatus.CHECKED)
+        ordersQueueRepository.updateStatus(aggressiveOrder.id, OrderQueueEntryStatus.CHECKED)
     }
 
     fun getAllOrders(): List<Order> {
